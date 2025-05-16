@@ -1,0 +1,90 @@
+🧠🛠️ ENGLISH INSTRUCTION FOR CLAUDE 3.7
+🎯 Goal: Refactor and optimize my current Flutter app with clear UI/UX structure, smart audio handling, and platform-aware downloads.
+
+🔧 1. Project Structure & Tabs
+The Home screen should have two tabs:
+
+App Sounds (Local + Favorites): shows all offline sounds and favorite online ones saved by the user.
+
+Online Sounds: fetches sounds from an API or crawled HTML, categorized by genre (e.g., meme, horror, game, phone sounds, social).
+
+Each tab displays sounds as cards or list items with:
+
+Play button
+
+Download button
+
+Favorite (heart ❤️) toggle
+
+📁 2. Audio Download Behavior
+When the user taps the download icon:
+
+Detect the platform (iOS or Android).
+
+Save the file in a location accessible via the system's Files app:
+
+Android: /storage/emulated/0/Download/TrollProMax/
+
+iOS: use NSDocumentDirectory with .m4a extension.
+
+Convert the downloaded sound to the correct audio format:
+
+.mp3 for Android
+
+.m4a for iOS
+
+Show toast/snackbar with confirmation and file location.
+
+Use dio or http to fetch the file from an online URL.
+
+❤️ 3. Favorite System
+Each sound item can be marked/unmarked as favorite.
+
+Favorite status is saved locally (use shared_preferences or hive).
+
+Sounds marked as favorite from the Online tab will appear automatically in the App Sounds tab under a Favorites section.
+
+Users can favorite both local and online sounds.
+
+🧼 4. Code Optimization & UI Cleanliness
+Follow MVVM pattern or Riverpod/Bloc for state management.
+
+Separate logic into clean ViewModel/Controller per screen.
+
+Ensure all components are reusable, themed consistently, and responsive across devices.
+
+UI should support both dark/light themes and use padding, spacing, and consistent typography.
+
+🎨 5. Optional Improvements
+Add a search bar at the top of each tab to filter sounds by name or category.
+
+Animate tab transitions with smooth fade/slide.
+
+Use flutter_audio_recorder or similar if recording functionality is desired later.
+
+🔋 6. Required Flutter Packages (suggested)
+yaml
+dependencies:
+  dio: 
+  path_provider: 
+  permission_handler: 
+  shared_preferences: 
+  just_audio:
+  flutter_riverpod: 
+🔄 7. Startup Behavior
+On app launch, scan local directory for downloaded sounds and load them into the App Sounds tab.
+
+Merge favorite list with local files for display.
+
+If an internet connection is available, fetch online sounds and cache the result for offline use if needed.
+
+🧠 Final Notes for Claude:
+Please rewrite the existing Flutter project according to the above plan. Refactor it to be clean, scalable, and efficient. Focus especially on:
+
+Smooth user experience
+
+Platform-aware audio handling
+
+Maintainable code structure
+
+Visually appealing layout
