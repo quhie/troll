@@ -318,6 +318,12 @@ class SoundService extends ChangeNotifier {
         return Icons.notifications_active.codePoint.toString();
       case CategoryType.favorite:
         return Icons.favorite.codePoint.toString();
+      case CategoryType.trending:
+        return Icons.trending_up.codePoint.toString();
+      case CategoryType.recent:
+        return Icons.history.codePoint.toString();
+      case CategoryType.best:
+        return Icons.star.codePoint.toString();
     }
   }
 

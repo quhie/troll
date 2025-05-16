@@ -7,11 +7,11 @@ class SearchField extends StatelessWidget {
   final FocusNode focusNode;
   final Function(String) onChanged;
   final Function(String) onSubmitted;
-  final VoidCallback onClear;
-  final VoidCallback onTap;
+  final VoidCallback? onClear;
+  final VoidCallback? onTap;
   final bool autofocus;
-  
-  static const String _logTag = 'SearchField';
+  final bool disabled;
+  final String? hint;
 
   const SearchField({
     Key? key,
@@ -19,9 +19,11 @@ class SearchField extends StatelessWidget {
     required this.focusNode,
     required this.onChanged,
     required this.onSubmitted,
-    required this.onClear,
-    required this.onTap,
+    this.onClear,
+    this.onTap,
     this.autofocus = false,
+    this.disabled = false,
+    this.hint,
   }) : super(key: key);
 
   @override
@@ -44,27 +46,33 @@ class SearchField extends StatelessWidget {
         controller: controller,
         focusNode: focusNode,
         autofocus: autofocus,
+        enabled: !disabled,
         decoration: InputDecoration(
-          hintText: 'search_hint'.tr(),
+          hintText: hint ?? 'search_hint'.tr(),
           hintStyle: TextStyle(
-            color: theme.hintColor,
+            color: disabled ? theme.disabledColor : theme.hintColor,
             fontSize: 16,
           ),
           prefixIcon: Icon(
             Icons.search_rounded,
-            color: theme.colorScheme.primary,
+            color: disabled ? theme.disabledColor : theme.colorScheme.primary,
           ),
-          suffixIcon: controller.text.isNotEmpty
+          suffixIcon: controller.text.isNotEmpty && !disabled
             ? IconButton(
                 icon: const Icon(Icons.clear_rounded),
                 onPressed: () {
-                  onClear();
+                  if (onClear != null) {
+                    onClear!();
+                  } else {
+                    controller.clear();
+                    onChanged('');
+                  }
                 },
                 splashRadius: 20,
               )
             : null,
           filled: true,
-          fillColor: theme.cardColor,
+          fillColor: disabled ? theme.disabledColor.withOpacity(0.1) : theme.cardColor,
           contentPadding: const EdgeInsets.symmetric(
             vertical: 16,
             horizontal: 16,
@@ -84,6 +92,13 @@ class SearchField extends StatelessWidget {
               width: 1.5,
             ),
           ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: theme.disabledColor.withOpacity(0.1),
+              width: 1.0,
+            ),
+          ),
         ),
         textInputAction: TextInputAction.search,
         onSubmitted: (text) {
@@ -93,10 +108,15 @@ class SearchField extends StatelessWidget {
           onChanged(text);
         },
         onTap: () {
-          onTap();
+          if (onTap != null) {
+            onTap!();
+          }
         },
         keyboardType: TextInputType.text,
-        style: const TextStyle(fontSize: 16),
+        style: TextStyle(
+          fontSize: 16,
+          color: disabled ? theme.disabledColor : theme.textTheme.bodyLarge?.color,
+        ),
       ),
     );
   }

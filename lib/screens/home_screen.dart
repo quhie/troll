@@ -16,6 +16,9 @@ import '../widgets/empty_state.dart';
 import '../screens/search_screen.dart';
 import '../widgets/custom_app_bar.dart';
 import 'package:flutter/services.dart';
+import '../services/connectivity_service.dart';
+import '../widgets/network_error_state.dart';
+import '../widgets/custom_tooltip.dart';
 
 /// Home screen for displaying sound categories
 class HomeScreen extends StatefulWidget {
@@ -171,30 +174,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         appBar: CustomAppBar(
           title: 'home_title'.tr(),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () {
-                // Navigate to search screen with animation
-                Navigator.of(context).push(
-                  PageRouteBuilder(
-                    pageBuilder: (context, animation, secondaryAnimation) => const SearchScreen(fromBottomNav: false),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                      const begin = Offset(1.0, 0.0);
-                      const end = Offset.zero;
-                      const curve = Curves.easeInOut;
-                      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                      var offsetAnimation = animation.drive(tween);
-                      
-                      return SlideTransition(
-                        position: offsetAnimation,
-                        child: child,
-                      );
-                    },
-                    transitionDuration: const Duration(milliseconds: 300),
-                  ),
-                );
-              },
-              tooltip: 'search_sounds'.tr(),
+            CustomTooltip(
+              message: 'search_sounds'.tr(),
+              child: IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: () {
+                  // Navigate to search screen with animation
+                  Navigator.of(context).push(
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) => const SearchScreen(fromBottomNav: false),
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        const begin = Offset(1.0, 0.0);
+                        const end = Offset.zero;
+                        const curve = Curves.easeInOut;
+                        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                        var offsetAnimation = animation.drive(tween);
+                        
+                        return SlideTransition(
+                          position: offsetAnimation,
+                          child: child,
+                        );
+                      },
+                      transitionDuration: const Duration(milliseconds: 300),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
           centerTitle: true,
@@ -234,53 +239,119 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
   
-  // Build the local sounds tab with local sounds and favorites
+  // Build the local sounds tab with local sounds and favorites (without categories)
   Widget _buildLocalSoundsTab(BuildContext context, SoundViewModel viewModel) {
-    final categorizedSounds = viewModel.categorizedSounds;
-    final categories = categorizedSounds.keys.map((c) => c.name).toList();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     
     return Column(
       children: [
-        // Horizontal category bar for local categories
-        CategoryBar(
-          categories: categories,
-          selectedCategory: viewModel.selectedCategory,
-          onCategorySelected: (category) {
-            // Select category in view model
-            viewModel.selectCategory(category);
-          },
+        // Header section with quick filter options
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildFilterButton(
+                context,
+                icon: Icons.download_done_rounded,
+                label: 'downloaded_sounds'.tr(),
+                backgroundColor: Colors.teal,
+                onTap: () {
+                  // Filter to show only downloaded sounds
+                  viewModel.selectCategory('');
+                  setState(() {
+                    // Reset to show all local sounds
+                  });
+                },
+                isDark: isDark,
+              ),
+              _buildFilterButton(
+                context,
+                icon: Icons.favorite,
+                label: 'favorite_sounds'.tr(),
+                backgroundColor: Colors.pink,
+                onTap: () {
+                  // Filter to show only favorite sounds
+                  viewModel.selectCategory(CategoryType.favorite.name);
+                },
+                isDark: isDark,
+              ),
+            ],
+          ),
         ),
         
-        // Sound grid for local sounds and favorites
+        // Sound list for local sounds and favorites
         Expanded(
           child: _isLoading
-              ? _buildShimmerGrid()
-              : _buildSoundGrid(context, _getFilteredLocalSounds(viewModel)),
+              ? _buildShimmerList() // Use the same shimmer style as online tab
+              : _buildLocalSoundsList(context, viewModel),
         ),
       ],
     );
   }
   
-  // Shimmer loading effect for grid
-  Widget _buildShimmerGrid() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
-      child: GridView.builder(
+  // Build local sounds list with the same style as online sounds list
+  Widget _buildLocalSoundsList(BuildContext context, SoundViewModel viewModel) {
+    final sounds = _getFilteredLocalSounds(viewModel);
+    
+    if (sounds.isEmpty) {
+      return EmptyStateWidget(
+        icon: Icons.music_off,
+        message: 'no_sounds_found'.tr(),
+        subMessage: 'download_or_favorite'.tr(),
+      );
+    }
+    
+    return RefreshIndicator(
+      onRefresh: () async {
+        // Refresh logic for local sounds
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('refreshing'.tr()),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        
+        // Use the new public method to refresh local sounds
+        await viewModel.refreshLocalSounds();
+        
+        return Future.value();
+      },
+      child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.0,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-        ),
-        itemCount: 6, // Hiển thị 6 card giả
+        itemCount: sounds.length,
         itemBuilder: (context, index) {
-          return Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+          final sound = sounds[index];
+          final isPlaying = _currentPlayingSoundId == sound.id;
+          
+          // Use the same card style as online sounds
+          return Padding(
+            key: ValueKey('local_${sound.id}'),
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SoundCard(
+              sound: sound,
+              isPlaying: isPlaying,
+              showCategory: true,
+              showDownloadButton: false, // No need for download button on local sounds
+              onPlay: () => _playSound(sound),
+              onFavorite: () => _toggleFavorite(sound),
+            ).animate(
+              // Only animate new items
+              key: ValueKey('anim_local_${sound.id}'),
+              autoPlay: true,
+              onComplete: (controller) => controller.dispose(),
+            ).fade(
+              duration: 300.ms,
+              delay: (50 * index).ms,
+            ).moveY(
+              begin: 20, 
+              end: 0,
+              duration: 300.ms, 
+              delay: (50 * index).ms,
+              curve: Curves.easeOutQuad,
             ),
-            child: Container(),
           );
         },
       ),
@@ -289,6 +360,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   
   // Build the online sounds tab with categories from API
   Widget _buildOnlineSoundsTab(BuildContext context, SoundViewModel viewModel) {
+    // Check if we're offline first - show network error state
+    if (!viewModel.hasNetworkConnection) {
+      return Center(
+        child: NetworkErrorState(
+          onRetry: () async {
+            // Manually check connectivity
+            await ConnectivityService().checkRealConnectivity();
+            
+            // Force UI refresh if we're connected now
+            if (ConnectivityService().isConnected && mounted) {
+              setState(() {});
+              
+              // Reload online sounds
+              viewModel.loadTrendingSounds();
+            }
+          },
+        ),
+      );
+    }
+    
     // Sử dụng memoization để tránh xây dựng danh sách categories mỗi lần build
     // Danh sách categories sẽ được lưu cache trong widget và chỉ cập nhật khi locale thay đổi
     final categories = _getLocalizedCategories();
@@ -696,39 +787,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
   
-  // Build sound grid for displaying sounds
-  Widget _buildSoundGrid(BuildContext context, List<SoundModel> sounds) {
-    if (sounds.isEmpty) {
-      return EmptyStateWidget(
-        icon: Icons.music_off,
-        message: 'Không tìm thấy âm thanh nào',
-        subMessage: 'Vui lòng thử danh mục khác hoặc tìm kiếm lại',
-      );
-    }
-    
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: sounds.length,
-      itemBuilder: (context, index) {
-        final sound = sounds[index];
-        final isPlaying = _currentPlayingSoundId == sound.id;
-        
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: SoundCard(
-            sound: sound,
-            isPlaying: isPlaying,
-            showCategory: true,
-            showDownloadButton: !sound.isLocal,
-            onPlay: () => _playSound(sound),
-            onDownload: sound.isLocal ? null : () => _downloadSound(sound),
-            onFavorite: () => _toggleFavorite(sound),
-          ),
-        );
-      },
-    );
-  }
-  
   // Build online sounds list with pagination
   Widget _buildOnlineSoundsList(BuildContext context, SoundViewModel viewModel) {
     final sounds = viewModel.onlineSounds;
@@ -736,8 +794,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (sounds.isEmpty) {
       return EmptyStateWidget(
         icon: Icons.cloud_off,
-        message: 'Không có âm thanh trực tuyến',
-        subMessage: 'Vui lòng kiểm tra kết nối mạng và thử lại',
+        message: 'no_online_sounds'.tr(),
+        subMessage: 'check_connection'.tr(),
         onRefresh: () {
           // Refresh sounds based on selected category
           viewModel.loadTrendingSounds();
@@ -749,9 +807,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       onRefresh: () async {
         // Hiển thị thông báo đang làm mới
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đang tải lại...'),
-            duration: Duration(seconds: 1),
+          SnackBar(
+            content: Text('refreshing'.tr()),
+            duration: const Duration(seconds: 1),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -768,7 +826,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           final isPlaying = _currentPlayingSoundId == sound.id;
           final isDownloading = viewModel.isDownloading && viewModel.downloadingSoundId == sound.id;
           
+          // Use a key for better list recycling
           return Padding(
+            key: ValueKey('sound_${sound.id}'),
             padding: const EdgeInsets.only(bottom: 12),
             child: SoundCard(
               sound: sound,
@@ -780,7 +840,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               onPlay: () => _playSound(sound),
               onDownload: () => _downloadSound(sound),
               onFavorite: () => _toggleFavorite(sound),
-            ).animate().fade(
+            ).animate(
+              // Only animate new items
+              key: ValueKey('anim_${sound.id}'),
+              autoPlay: true,
+              onComplete: (controller) => controller.dispose(),
+            ).fade(
               duration: 300.ms,
               delay: (50 * index).ms,
             ).moveY(
@@ -803,27 +868,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
   
   // Download a sound
-  // Trong file screens/home_screen.dart hoặc bất kỳ widget nào gọi downloadSound
-Future<void> _downloadSound(SoundModel sound) async {
-  final viewModel = Provider.of<SoundViewModel>(context, listen: false);
-  final success = await viewModel.downloadSound(sound);
-  
-  if (mounted) {
-    // Hiển thị thông báo dưới dạng SnackBar
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success 
-              ? 'download_success'.tr() + ': ${sound.name}'
-              : 'download_failed'.tr() + ': Please try again',
+  Future<void> _downloadSound(SoundModel sound) async {
+    final viewModel = Provider.of<SoundViewModel>(context, listen: false);
+    final success = await viewModel.downloadSound(sound);
+    
+    if (mounted) {
+      // Hiển thị thông báo dưới dạng SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success 
+                ? 'download_success'.tr() + ': ${sound.name}'
+                : 'download_failed'.tr() + ': ' + 'try_again'.tr(),
+          ),
+          backgroundColor: success ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
         ),
-        backgroundColor: success ? Colors.green : Colors.red,
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      );
+    }
   }
-}
   
   // Toggle favorite status
   void _toggleFavorite(SoundModel sound) {

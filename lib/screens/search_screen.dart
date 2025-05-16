@@ -22,6 +22,8 @@ import '../widgets/search_loading.dart';
 import '../widgets/search_no_results.dart';
 import '../utils/keyboard_utils.dart';
 import '../utils/log_utils.dart';
+import '../widgets/network_error_state.dart';
+import '../services/connectivity_service.dart';
 
 /// Tag for logging
 const String _logTag = 'SearchScreen';
@@ -78,33 +80,50 @@ class _SearchScreenState extends State<SearchScreen> with WidgetsBindingObserver
   // Biến đánh dấu đã xử lý focus change để tránh vòng lặp
   bool _isHandlingFocusChange = false;
 
+  // Tracking network state
+  bool _isOffline = false;
+  StreamSubscription? _connectivitySubscription;
+
   @override
   void initState() {
     super.initState();
+    
     WidgetsBinding.instance.addObserver(this);
     
-    // Đơn giản hóa xử lý focus
+    // Set up focus listener 
     _searchFocusNode.addListener(_simpleFocusListener);
     
-    // Chờ màn hình render hoàn tất và hiển thị bàn phím nếu cần
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Nếu truy cập từ bottom nav, hiển thị bàn phím sau delay nhỏ
-      if (widget.fromBottomNav && mounted) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            // Chỉ yêu cầu focus, không gọi trực tiếp hiện bàn phím
-            FocusScope.of(context).requestFocus(_searchFocusNode);
-          }
-        });
-      }
-    });
+    // Set up connectivity listener
+    _connectivitySubscription = ConnectivityService().connectionStatus.listen(_handleConnectivityChange);
+    
+    // Initial network state check
+    _isOffline = !ConnectivityService().isConnected;
+    
+    // Auto focus when screen opens from bottom nav
+    if (widget.fromBottomNav) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_isDisposed && mounted && !_isHandlingFocusChange) {
+          _isHandlingFocusChange = true;
+          FocusScope.of(context).requestFocus(_searchFocusNode);
+          _isHandlingFocusChange = false;
+        }
+      });
+    }
   }
   
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    
     final soundViewModel = Provider.of<SoundViewModel>(context);
     _currentPlayingSoundId = soundViewModel.currentPlayingSoundId;
+    
+    // Check network state from ViewModel
+    if (_isOffline != !soundViewModel.hasNetworkConnection) {
+      setState(() {
+        _isOffline = !soundViewModel.hasNetworkConnection;
+      });
+    }
     
     // Cập nhật trạng thái kết quả tìm kiếm
     _setupSearchResults();
@@ -123,6 +142,7 @@ class _SearchScreenState extends State<SearchScreen> with WidgetsBindingObserver
     
     _debounceTimer?.cancel();
     _keyboardHideTimer?.cancel();
+    _connectivitySubscription?.cancel();
     _searchFocusNode.removeListener(_simpleFocusListener);
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -164,7 +184,7 @@ class _SearchScreenState extends State<SearchScreen> with WidgetsBindingObserver
   void _startKeyboardHideTimer() {
     _cancelKeyboardHideTimer();
     
-    _keyboardHideTimer = Timer(const Duration(seconds: 5), () {
+    _keyboardHideTimer = Timer(const Duration(seconds: 15), () {
       if (mounted && !_isHandlingFocusChange) {
         _isHandlingFocusChange = true;
         FocusScope.of(context).unfocus();
@@ -261,13 +281,25 @@ class _SearchScreenState extends State<SearchScreen> with WidgetsBindingObserver
     _searchSounds(query);
   }
 
-  // Tìm kiếm âm thanh
+  // Search for sounds with debounce
   Future<void> _searchSounds(String query) async {
+    // Check if we're offline first
+    if (_isOffline) {
+      if (!_isDisposed && mounted) {
+        setState(() {
+          _isLoading = false;
+          _searchResults = [];
+        });
+      }
+      return;
+    }
     
+    // Don't search if query is empty
     if (query.isEmpty) {
       return;
     }
     
+    // Don't repeat the same search if results already exist and query is the same
     if (query == _lastSearchQuery && _searchResults.isNotEmpty) {
       return;
     }
@@ -283,8 +315,7 @@ class _SearchScreenState extends State<SearchScreen> with WidgetsBindingObserver
     
     try {
       final viewModel = Provider.of<SoundViewModel>(context, listen: false);
-      final results = await viewModel.searchSounds(query);
-      
+      final results = await viewModel.search(query);
       
       if (!_isDisposed && mounted) {
         setState(() {
@@ -292,6 +323,7 @@ class _SearchScreenState extends State<SearchScreen> with WidgetsBindingObserver
           _isLoading = false;
         });
         
+        // Cache top results in the viewModel for reuse
         if (results.isNotEmpty) {
           for (int i = 0; i < results.length && i < 5; i++) {
             viewModel.addSoundToOnlineSounds(results[i]);
@@ -300,12 +332,12 @@ class _SearchScreenState extends State<SearchScreen> with WidgetsBindingObserver
         }
       }
     } catch (e) {
-      
       if (!_isDisposed && mounted) {
         setState(() {
           _isLoading = false;
         });
         
+        // Show error message
         _showErrorSnackbar('search_failed'.tr());
       }
     }
@@ -527,219 +559,191 @@ class _SearchScreenState extends State<SearchScreen> with WidgetsBindingObserver
     }
   }
 
+  // Handle connectivity changes
+  void _handleConnectivityChange(bool isConnected) {
+    if (_isOffline != !isConnected) {
+      setState(() {
+        _isOffline = !isConnected;
+      });
+      
+      // If connection restored and we have a query, retry search
+      if (isConnected && _searchController.text.isNotEmpty) {
+        _searchSounds(_searchController.text);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final viewModel = Provider.of<SoundViewModel>(context);
     
-    // Kiểm tra âm thanh đang phát
-    if (_currentPlayingSoundId != Provider.of<SoundViewModel>(context).currentPlayingSoundId) {
-      _currentPlayingSoundId = Provider.of<SoundViewModel>(context).currentPlayingSoundId;
-    }
-    
-    return WillPopScope(
-      onWillPop: () async {
-        FocusScope.of(context).unfocus();
-        return true;
-      },
-      child: GestureDetector(
-        onTap: () {
-          // Ẩn bàn phím khi tap vào khoảng trống
-          FocusScope.of(context).unfocus();
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          backgroundColor: theme.scaffoldBackgroundColor,
-          appBar: CustomAppBar(
-            title: 'search_screen_title'.tr(),
-            centerTitle: true,
-            showBackButton: !widget.fromBottomNav,
-            elevation: 0,
-            backgroundColor: theme.scaffoldBackgroundColor,
-          ),
-          body: SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Thanh tìm kiếm
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: SearchField(
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    autofocus: widget.fromBottomNav, // Tự động focus khi từ bottom nav
-                    onChanged: _onSearchTextChanged,
-                    onSubmitted: _onSubmitSearch,
-                    onClear: () {
-                      _searchController.clear();
-                      if (!_isDisposed && mounted) setState(() {});
-                    },
-                    onTap: () {
-                      // Reset timer khi người dùng tap vào search field
-                      _startKeyboardHideTimer();
-                    },
-                  ),
-                ),
-                
-                // Nội dung chính
-                Expanded(
-                  child: _buildContent(),
-                ),
-              ],
+    return Scaffold(
+      appBar: CustomAppBar(
+        title: 'search'.tr(),
+        elevation: 0,
+        showBackButton: !widget.fromBottomNav,
+        centerTitle: true,
+        leading: widget.fromBottomNav ? null : IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        showThemeToggle: true,
+      ),
+      body: Column(
+        children: [
+          // Search input
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SearchField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onChanged: _onSearchTextChanged,
+              onSubmitted: _onSubmitSearch,
+              onTap: () {
+                if (_searchFocusNode.hasFocus) {
+                  _startKeyboardHideTimer();
+                }
+              },
+              onClear: () {
+                _searchController.clear();
+                _onSearchTextChanged('');
+              },
+              autofocus: widget.fromBottomNav,
+              disabled: _isOffline, // Disable search when offline
+              hint: 'search_hint'.tr(),
             ),
           ),
+          
+          // Main content
+          Expanded(
+            child: _buildMainContent(),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMainContent() {
+    // Show offline state if network is unavailable
+    if (_isOffline) {
+      return NetworkErrorState(
+        onRetry: () async {
+          // Manually check connectivity
+          await ConnectivityService().checkRealConnectivity();
+          
+          // If connected now, retry search if we have a query
+          if (ConnectivityService().isConnected && 
+              _searchController.text.isNotEmpty && 
+              mounted) {
+            setState(() {
+              _isOffline = false;
+            });
+            _searchSounds(_searchController.text);
+          }
+        },
+      );
+    }
+    
+    // Loading indicator
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+    
+    // Empty text field - show empty state
+    if (_searchController.text.isEmpty) {
+      return _buildEmptyState();
+    }
+    
+    // Has search query but no results
+    if (_searchController.text.isNotEmpty && _searchResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 72,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'no_results'.tr(),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'try_different_keywords'.tr(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Display search results
+    return SearchResults(
+      results: _searchResults, 
+      onSoundTap: _handleSoundTap,
+      currentPlayingId: _currentPlayingSoundId,
+      searchQuery: _lastSearchQuery,
+    );
+  }
+  
+  Widget _buildEmptyState() {
+    return GestureDetector(
+      onTap: () {
+        FocusScope.of(context).requestFocus(_searchFocusNode);
+      },
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search,
+              size: 72,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'search_instruction'.tr(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+              maxLines: 2,
+            ),
+          ],
         ),
       ),
     );
   }
   
-  // Widget hiển thị trạng thái rỗng hoặc khởi tạo
-  Widget _buildEmptyState() {
-    return GestureDetector(
-      onTap: () {
-        // Khi người dùng tap vào khu vực trống, yêu cầu focus cho thanh tìm kiếm
-        if (_searchFocusNode.canRequestFocus && mounted) {
-          _isHandlingFocusChange = true; // Ngăn xung đột
-          FocusScope.of(context).requestFocus(_searchFocusNode);
-          _isHandlingFocusChange = false;
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-              size: 80,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'search_hint'.tr(),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'start_searching'.tr().isEmpty ? 'Bắt đầu tìm kiếm âm thanh yêu thích của bạn' : 'start_searching'.tr(),
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            _buildSearchSuggestions(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Nội dung dựa trên trạng thái hiện tại
-  Widget _buildContent() {
-    if (_searchController.text.isEmpty && _searchResults.isEmpty) {
-      return _buildEmptyState();
+  void _handleSoundTap(SoundModel sound) {
+    final viewModel = Provider.of<SoundViewModel>(context, listen: false);
+    
+    // Play or stop sound
+    if (_currentPlayingSoundId == sound.id) {
+      viewModel.stopSound();
+    } else {
+      viewModel.playSound(sound);
     }
     
-    if (_isLoading) {
-      return const SearchLoading();
-    }
-    
-    if (_searchResults.isEmpty) {
-      return SearchNoResults(
-        query: _searchController.text,
-        onTrySimpler: () {
-          final words = _searchController.text.split(' ');
-          if (words.isNotEmpty && words[0].length > 2) {
-            _searchController.text = words[0];
-            _searchSounds(words[0]);
-          }
-        },
-        onClear: () {
-          _searchController.clear();
-          if (!_isDisposed && mounted) setState(() {});
-        },
-      );
-    }
-    
-    return SearchResults(
-      results: _searchResults,
-      query: _lastSearchQuery,
-      onRefresh: () => _searchSounds(_searchController.text),
-    );
-  }
-
-  // Widget hiển thị gợi ý tìm kiếm
-  Widget _buildSearchSuggestions() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_recentSearches.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'recent_searches'.tr(),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _recentSearches.map((term) {
-                return ActionChip(
-                  label: Text(term),
-                  avatar: const Icon(Icons.history, size: 18),
-                  onPressed: () {
-                    _searchController.text = term;
-                    _searchSounds(term);
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-          ],
-          
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              'popular_searches'.tr(),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _popularSearches.map((term) {
-              return ActionChip(
-                label: Text(term),
-                avatar: const Icon(Icons.trending_up, size: 18),
-                onPressed: () {
-                  _searchController.text = term;
-                  _searchSounds(term);
-                },
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _currentPlayingSoundId = viewModel.currentPlayingSoundId;
+    });
   }
 } 

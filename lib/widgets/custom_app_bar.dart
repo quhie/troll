@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../services/preferences_service.dart';
+import '../widgets/custom_tooltip.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -41,26 +42,28 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       if (showThemeToggle)
         Consumer<PreferencesService>(
           builder: (context, preferences, _) {
-            return IconButton(
-                  icon: Icon(
-                    preferences.darkModeEnabled
-                        ? Icons.light_mode
-                        : Icons.dark_mode,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  onPressed: () {
-                    final newValue = !preferences.darkModeEnabled;
-                    preferences.setDarkMode(newValue);
-                  },
-                  tooltip: 'Toggle Theme',
-                )
-                .animate()
-                .fade(duration: 300.ms)
-                .scale(
-                  begin: const Offset(0.8, 0.8),
-                  end: const Offset(1.0, 1.0),
-                  duration: 300.ms,
-                );
+            return CustomTooltip(
+              message: 'Toggle Theme',
+              child: IconButton(
+                icon: Icon(
+                  preferences.darkModeEnabled
+                      ? Icons.light_mode
+                      : Icons.dark_mode,
+                  color: theme.colorScheme.onSurface,
+                ),
+                onPressed: () {
+                  final newValue = !preferences.darkModeEnabled;
+                  preferences.setDarkMode(newValue);
+                },
+              ),
+            )
+            .animate()
+            .fade(duration: 300.ms)
+            .scale(
+              begin: const Offset(0.8, 0.8),
+              end: const Offset(1.0, 1.0),
+              duration: 300.ms,
+            );
           },
         ),
       if (actions != null) ...actions!,
@@ -85,14 +88,16 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: elevation,
       shadowColor: isDark ? Colors.black38 : Colors.black12,
       automaticallyImplyLeading: showBackButton,
-      leading: leading ?? (showBackButton ? IconButton(
-        icon: Icon(
-          Icons.arrow_back_ios_new,
-          size: 20,
-          color: theme.colorScheme.onSurface,
+      leading: leading ?? (showBackButton ? CustomTooltip(
+        message: 'Back',
+        child: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new,
+            size: 20,
+            color: theme.colorScheme.onSurface,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        onPressed: () => Navigator.of(context).pop(),
-        tooltip: 'Back',
       ) : null),
       actions: combinedActions,
       bottom: bottom,

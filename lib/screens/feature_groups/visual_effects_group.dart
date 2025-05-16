@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../models/feature.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/haptic_feedback_helper.dart';
@@ -36,7 +38,7 @@ class VisualEffectsGroup {
           icon: Icons.screen_rotation,
           onTap: () {
             HapticFeedbackHelper.errorFeedback();
-            _showGlitchEffect(context);
+            _showGlitchWarning(context);
           },
           description: 'Make the screen appear broken',
         ),
@@ -47,7 +49,7 @@ class VisualEffectsGroup {
           icon: Icons.flashlight_on,
           onTap: () {
             HapticFeedbackHelper.mediumImpact();
-            _showFlashlightWarning(context);
+            _showStrobeWarning(context);
           },
           description: 'Flash the device flashlight',
           tag: 'New',
@@ -58,74 +60,67 @@ class VisualEffectsGroup {
   }
 
   /// Show a temporary screen glitch effect
-  static void _showGlitchEffect(BuildContext context) {
-    // This would be implemented to create a screen glitch effect
-    // For now, we'll just show a dialog explaining the feature is coming soon
+  static void _showGlitchWarning(BuildContext context) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Screen Glitch'),
-            content: const Text(
-              'This feature will make the screen appear to glitch and break temporarily. Coming in the next update!',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text('screen_glitch'.tr()),
+        content: Text('screen_glitch_desc'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('ok'.tr()),
           ),
+        ],
+      ),
     );
   }
 
   /// Show flashlight strobe warning
-  static void _showFlashlightWarning(BuildContext context) {
+  static void _showStrobeWarning(BuildContext context) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('⚠️ Warning: Flashlight Strobe'),
-            content: const Text(
-              'This feature will rapidly flash your device\'s flashlight. It may trigger seizures in people with photosensitive epilepsy. Use with caution and never point directly at someone\'s eyes.\n\nThis feature requires camera permissions.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  // Implementation would go here requesting permission and controlling flashlight
-                  // For now, we just show another dialog
-                  _showFlashlightComingSoon(context);
-                },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('I Understand, Continue'),
-              ),
-            ],
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text('warning_flashlight'.tr()),
+        content: Text('warning_flashlight_desc'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('cancel'.tr()),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _startStrobeEffect(context);
+            },
+            child: Text('understand_continue'.tr()),
+          ),
+        ],
+      ),
     );
   }
 
-  /// Show flashlight coming soon
-  static void _showFlashlightComingSoon(BuildContext context) {
+  /// Show coming soon dialog
+  static void _showComingSoonDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Coming Soon'),
-            content: const Text(
-              'The flashlight strobe feature will be available in the next update!',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: Text('coming_soon'.tr()),
+        content: Text('feature_coming_soon'.tr()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('ok'.tr()),
           ),
+        ],
+      ),
     );
+  }
+
+  static void _startStrobeEffect(BuildContext context) {
+    // Implementation would go here requesting permission and controlling flashlight
+    // For now, we just show another dialog
+    _showComingSoonDialog(context);
   }
 }

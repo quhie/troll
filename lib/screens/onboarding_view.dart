@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import '../utils/app_theme.dart';
-import '../screens/app_container.dart';
-import '../models/sound_category.dart';
 import '../services/preferences_service.dart';
+import '../screens/app_container.dart';
+import 'package:easy_localization/easy_localization.dart';
 
-/// Onboarding screen shown to first-time users
+/// Onboarding screen shown to first-time users - optimized for performance
 class OnboardingView extends StatefulWidget {
   const OnboardingView({Key? key}) : super(key: key);
 
@@ -19,38 +17,30 @@ class _OnboardingViewState extends State<OnboardingView> {
   int _currentPage = 0;
   final int _totalPages = 4;
 
-  final List<OnboardingStep> _steps = [
-    OnboardingStep(
-      title: 'Welcome to Troll Sounds',
-      description:
-          'Your ultimate prank sound effects app, packed with fun sounds to surprise your friends!',
-      image: 'assets/images/onboarding1.png',
-      color: Colors.indigo,
+  final List<OnboardingPage> _pages = [
+    OnboardingPage(
+      title: 'welcome_title',
+      description: 'welcome_desc',
       icon: Icons.emoji_emotions,
+      color: Colors.blue.shade700,
     ),
-    OnboardingStep(
-      title: 'Sound Categories',
-      description:
-          'Explore sounds organized in categories: Phone, Game, Horror, Meme and more!',
-      image: 'assets/images/onboarding2.png',
-      color: Colors.green,
+    OnboardingPage(
+      title: 'categories_title',
+      description: 'categories_desc',
       icon: Icons.category,
+      color: Colors.green.shade700,
     ),
-    OnboardingStep(
-      title: 'Save Favorites',
-      description:
-          'Long press any sound to add it to your favorites for quick access.',
-      image: 'assets/images/onboarding3.png',
-      color: Colors.pink,
+    OnboardingPage(
+      title: 'favorites_title',
+      description: 'favorites_desc',
       icon: Icons.favorite,
+      color: Colors.pink.shade700,
     ),
-    OnboardingStep(
-      title: 'Ready to Troll?',
-      description:
-          'Time to have fun and surprise everyone with amazing sound effects!',
-      image: 'assets/images/onboarding4.png',
-      color: Colors.deepOrange,
+    OnboardingPage(
+      title: 'ready_title',
+      description: 'ready_desc',
       icon: Icons.celebration,
+      color: Colors.orange.shade700,
     ),
   ];
 
@@ -61,32 +51,22 @@ class _OnboardingViewState extends State<OnboardingView> {
   }
 
   void _completeOnboarding() {
-    // Mark onboarding as completed in preferences
-    final preferencesService = Provider.of<PreferencesService>(
-      context,
-      listen: false,
+    Provider.of<PreferencesService>(context, listen: false)
+        .setOnboardingCompleted();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const AppContainer()),
     );
-    preferencesService.setOnboardingCompleted();
-
-    // Navigate to app
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const AppContainer()));
   }
 
-  void _goToNext() {
+  void _nextPage() {
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeIn,
       );
     } else {
       _completeOnboarding();
     }
-  }
-
-  void _skipOnboarding() {
-    _completeOnboarding();
   }
 
   @override
@@ -94,16 +74,15 @@ class _OnboardingViewState extends State<OnboardingView> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 500),
+          // Background with gradient
+          Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  _steps[_currentPage].color,
-                  _steps[_currentPage].color.withOpacity(0.7),
+                  _pages[_currentPage].color,
+                  _pages[_currentPage].color.withOpacity(0.7),
                 ],
               ),
             ),
@@ -116,14 +95,14 @@ class _OnboardingViewState extends State<OnboardingView> {
                 // Skip button
                 Align(
                   alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: TextButton(
-                      onPressed: _skipOnboarding,
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
+                  child: TextButton(
+                    onPressed: _completeOnboarding,
+                    child: Text(
+                      'skip'.tr(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
                       ),
-                      child: const Text('Skip'),
                     ),
                   ),
                 ),
@@ -137,34 +116,31 @@ class _OnboardingViewState extends State<OnboardingView> {
                         _currentPage = page;
                       });
                     },
-                    itemCount: _steps.length,
+                    itemCount: _pages.length,
                     itemBuilder: (context, index) {
-                      final step = _steps[index];
-                      return _buildPage(step);
+                      return _buildPage(_pages[index]);
                     },
                   ),
                 ),
 
-                // Page indicators and button
+                // Bottom navigation
                 Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Page indicators
+                      // Page indicator
                       Row(
                         children: List.generate(
                           _totalPages,
-                          (index) => AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            margin: const EdgeInsets.only(right: 8),
+                          (index) => Container(
+                            margin: const EdgeInsets.only(right: 6),
                             height: 8,
                             width: index == _currentPage ? 24 : 8,
                             decoration: BoxDecoration(
-                              color:
-                                  index == _currentPage
-                                      ? Colors.white
-                                      : Colors.white.withOpacity(0.4),
+                              color: index == _currentPage
+                                  ? Colors.white
+                                  : Colors.white.withOpacity(0.4),
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -172,17 +148,23 @@ class _OnboardingViewState extends State<OnboardingView> {
                       ),
 
                       // Next button
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        child: FloatingActionButton(
-                          onPressed: _goToNext,
+                      ElevatedButton(
+                        onPressed: _nextPage,
+                        style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: _steps[_currentPage].color,
-                          child: Icon(
-                            _currentPage < _totalPages - 1
-                                ? Icons.arrow_forward
-                                : Icons.check,
+                          foregroundColor: _pages[_currentPage].color,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
+                          shape: const CircleBorder(),
+                        ),
+                        child: Icon(
+                          _currentPage < _totalPages - 1
+                              ? Icons.arrow_forward
+                              : Icons.check,
+                          size: 28,
                         ),
                       ),
                     ],
@@ -196,101 +178,70 @@ class _OnboardingViewState extends State<OnboardingView> {
     );
   }
 
-  Widget _buildPage(OnboardingStep step) {
+  Widget _buildPage(OnboardingPage page) {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon with animation
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+          // Icon
+          CircleAvatar(
+            radius: 45,
+            backgroundColor: Colors.white,
+            child: Icon(
+              page.icon,
+              size: 45,
+              color: page.color,
             ),
-            child: Icon(step.icon, size: 60, color: step.color),
-          ).animate().scale(
-            begin: const Offset(0.8, 0.8),
-            end: const Offset(1, 1),
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeOutBack,
           ),
-
-          const SizedBox(height: 48),
-
-          // Title
-          Text(
-                step.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              )
-              .animate()
-              .fadeIn(
-                delay: const Duration(milliseconds: 300),
-                duration: const Duration(milliseconds: 500),
-              )
-              .moveY(
-                begin: 20,
-                end: 0,
-                delay: const Duration(milliseconds: 300),
-                duration: const Duration(milliseconds: 500),
-              ),
 
           const SizedBox(height: 24),
 
-          // Description
+          // Title
           Text(
-                step.description,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 16,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              )
-              .animate()
-              .fadeIn(
-                delay: const Duration(milliseconds: 500),
-                duration: const Duration(milliseconds: 500),
-              )
-              .moveY(
-                begin: 20,
-                end: 0,
-                delay: const Duration(milliseconds: 500),
-                duration: const Duration(milliseconds: 500),
+            page.title.tr(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              height: 1.2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 12),
+
+          // Description
+          Container(
+            constraints: const BoxConstraints(maxWidth: 280),
+            child: Text(
+              page.description.tr(),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 13,
+                height: 1.4,
+                letterSpacing: -0.2,
               ),
+              textAlign: TextAlign.center,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Model class for onboarding steps
-class OnboardingStep {
+/// Simple data class for onboarding pages
+class OnboardingPage {
   final String title;
   final String description;
-  final String image;
-  final Color color;
   final IconData icon;
+  final Color color;
 
-  OnboardingStep({
+  OnboardingPage({
     required this.title,
     required this.description,
-    required this.image,
-    required this.color,
     required this.icon,
+    required this.color,
   });
 }

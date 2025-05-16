@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -9,6 +10,7 @@ import '../services/sound_service.dart';
 import '../services/myinstants_service.dart';
 import '../services/preferences_service.dart';
 import '../services/favorite_service.dart';
+import '../services/connectivity_service.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:uuid/uuid.dart';
@@ -19,6 +21,7 @@ class SoundViewModel extends ChangeNotifier {
   final MyInstantsService _myInstantsService;
   final PreferencesService _preferencesService;
   final FavoriteService _favoriteService = FavoriteService();
+  final ConnectivityService _connectivityService = ConnectivityService();
   final Dio _dio = Dio();
   
   // Sound state
@@ -33,6 +36,15 @@ class SoundViewModel extends ChangeNotifier {
   Map<CategoryType, List<SoundModel>> _categorizedSounds = {};
   String _selectedCategory = '';
   String _searchQuery = '';
+  
+  // Network state
+  bool _hasNetworkConnection = true;
+  bool _isFirstLoad = true;
+  StreamSubscription? _connectivitySubscription;
+  
+  // Biến để theo dõi chế độ hiển thị hiện tại
+  bool _recentMode = false;
+  bool _bestMode = false;
   
   // Danh sách danh mục chuẩn cho API
   final List<String> _apiCategories = [
@@ -85,6 +97,8 @@ class SoundViewModel extends ChangeNotifier {
   Map<CategoryType, List<SoundModel>> get categorizedSounds => _categorizedSounds;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
+  bool get hasNetworkConnection => _hasNetworkConnection;
+  bool get isFirstLoad => _isFirstLoad;
   
   SoundViewModel({
     required SoundService soundService,
@@ -110,13 +124,24 @@ class SoundViewModel extends ChangeNotifier {
     // Register for audio state changes
     _soundService.audioStateStream.listen(_handleAudioStateChange);
     
+    // Listen for connectivity changes
+    _connectivitySubscription = _connectivityService.connectionStatus.listen(_handleConnectivityChange);
+    
+    // Get initial connectivity state
+    _hasNetworkConnection = _connectivityService.isConnected;
+    
     _setLoading(false);
     
     // Load online sounds if we have network connectivity
-    await _loadOnlineSounds();
+    if (_hasNetworkConnection) {
+      await _loadOnlineSounds();
+    }
     
     // Đảm bảo đồng bộ hóa dữ liệu
     syncRecentSearchResults();
+    
+    // Mark first load as complete
+    _isFirstLoad = false;
   }
   
   /// Set loading state
@@ -139,6 +164,34 @@ class SoundViewModel extends ChangeNotifier {
     notifyListeners();
   }
   
+  /// Handle connectivity changes
+  void _handleConnectivityChange(bool isConnected) {
+    final bool previousState = _hasNetworkConnection;
+    _hasNetworkConnection = isConnected;
+    
+    // If connection restored, attempt to load online sounds
+    if (!previousState && isConnected) {
+      debugPrint('SoundViewModel: Kết nối internet đã được khôi phục, đang tải âm thanh trực tuyến...');
+      _loadOnlineSounds();
+    }
+    
+    notifyListeners();
+  }
+  
+  /// Check if internet connection is available
+  Future<bool> _checkInternetConnection() async {
+    if (!_hasNetworkConnection) {
+      return false;
+    }
+    
+    try {
+      await _connectivityService.checkRealConnectivity();
+      return _connectivityService.isConnected;
+    } catch (e) {
+      return false;
+    }
+  }
+  
   /// Load local sounds from the device
   Future<void> _loadLocalSounds() async {
     try {
@@ -158,6 +211,14 @@ class SoundViewModel extends ChangeNotifier {
   
   /// Load online sounds
   Future<void> _loadOnlineSounds() async {
+    // Check internet connection first
+    final hasInternet = await _checkInternetConnection();
+    if (!hasInternet) {
+      debugPrint('SoundViewModel: Không có kết nối internet, không thể tải âm thanh trực tuyến');
+      notifyListeners();
+      return;
+    }
+    
     try {
       _setLoading(true);
       
@@ -276,6 +337,25 @@ class SoundViewModel extends ChangeNotifier {
       }
     }
     // Added online favorites to their respective categories
+    
+    // Add online sounds based on current mode (trending, recent, best)
+    if (_onlineSounds.isNotEmpty) {
+      // Determine category based on current loading state or default to trending
+      CategoryType onlineCategory = CategoryType.trending; // Default
+      
+      if (_recentMode) {
+        onlineCategory = CategoryType.recent;
+      } else if (_bestMode) {
+        onlineCategory = CategoryType.best;
+      }
+      
+      // Add online sounds to the appropriate category
+      List<SoundModel> updatedSounds = _onlineSounds.map((sound) => 
+        sound.copyWith(category: onlineCategory)
+      ).toList();
+      
+      categorized[onlineCategory] = updatedSounds;
+    }
     
     // Log the categories we have
     // Categories in map
@@ -443,42 +523,40 @@ class SoundViewModel extends ChangeNotifier {
     }
   }
   
-  /// Search sounds
-  Future<List<SoundModel>> searchSounds(String query) async {
-    if (query.isEmpty) return [];
+  /// Search for sounds with the given query
+  Future<List<SoundModel>> search(String query) async {
+    _searchQuery = query.trim();
     
-    _searchQuery = query;
-    notifyListeners();
+    if (_searchQuery.isEmpty) {
+      return [];
+    }
+    
+    // Check internet connection first
+    final hasInternet = await _checkInternetConnection();
+    if (!hasInternet) {
+      debugPrint('SoundViewModel: Không có kết nối internet, không thể tìm kiếm âm thanh trực tuyến');
+      // Return empty list for no connection
+      return [];
+    }
+    
+    _setLoading(true);
     
     try {
-      // Quản lý cache trước khi tìm kiếm mới
-      await manageSoundCache();
+      // Gọi API tìm kiếm
+      final results = await _myInstantsService.search(_searchQuery);
       
-      final results = await _myInstantsService.search(query);
-      
-      // Mark favorites in search results
+      // Mark favorites
       for (var i = 0; i < results.length; i++) {
-        final soundId = results[i].id;
-        final isFavorite = _favoriteService.isFavorite(soundId);
+        final isFavorite = _favoriteService.isFavorite(results[i].id);
         results[i] = results[i].copyWith(isFavorite: isFavorite);
       }
       
-      // Cache search results if they're valid
-      if (results.isNotEmpty) {
-        // Lưu kết quả tìm kiếm vào cache để có thể dùng lại
-        _lastSearchResults = List.from(results);
-        
-        // Nếu có nhiều hơn 50 kết quả, chỉ lưu 50 để đảm bảo hiệu suất
-        if (_lastSearchResults.length > 50) {
-          _lastSearchResults = _lastSearchResults.sublist(0, 50);
-        }
-        
-        // Cached search results for query
-      }
-      
+      _setLoading(false);
       return results;
     } catch (e) {
-      // Error searching sounds
+      _setLoading(false);
+      // Error searching
+      debugPrint('SoundViewModel: Lỗi tìm kiếm: $e');
       return [];
     }
   }
@@ -767,6 +845,9 @@ class SoundViewModel extends ChangeNotifier {
   /// Clean up resources
   @override
   void dispose() {
+    // Cancel any subscriptions
+    _connectivitySubscription?.cancel();
+    
     super.dispose();
   }
   
@@ -781,8 +862,11 @@ class SoundViewModel extends ChangeNotifier {
     _setLoading(true);
     
     try {
-      // Loading trending sounds
+      // Set mode flags
+      _recentMode = false;
+      _bestMode = false;
       
+      // Loading trending sounds
       final sounds = await _myInstantsService.getTrending();
       // Received trending sounds from API
       
@@ -793,11 +877,14 @@ class SoundViewModel extends ChangeNotifier {
         finalSounds = _createMockSounds('Trending');
       }
       
-      // Mark favorites in sounds
+      // Mark favorites in sounds and update category
       for (var i = 0; i < finalSounds.length; i++) {
         final soundId = finalSounds[i].id;
         final isFavorite = _favoriteService.isFavorite(soundId);
-        finalSounds[i] = finalSounds[i].copyWith(isFavorite: isFavorite);
+        finalSounds[i] = finalSounds[i].copyWith(
+          isFavorite: isFavorite,
+          category: CategoryType.trending
+        );
       }
       
       // Setting trending sounds to onlineSounds
@@ -811,7 +898,9 @@ class SoundViewModel extends ChangeNotifier {
     } catch (e) {
       // Error loading trending sounds
       // Sử dụng dữ liệu mẫu khi có lỗi
-      _onlineSounds = _createMockSounds('Trending');
+      _onlineSounds = _createMockSounds('Trending').map((sound) => 
+        sound.copyWith(category: CategoryType.trending)
+      ).toList();
       _updateCategorizedSounds();
       notifyListeners();
     } finally {
@@ -824,6 +913,10 @@ class SoundViewModel extends ChangeNotifier {
     try {
       _setLoading(true);
       
+      // Set mode flags
+      _recentMode = true;
+      _bestMode = false;
+      
       final sounds = await _myInstantsService.getRecent();
       
       // Nếu không có âm thanh từ API, sử dụng dữ liệu mẫu
@@ -832,11 +925,14 @@ class SoundViewModel extends ChangeNotifier {
         finalSounds = _createMockSounds('Recent');
       }
       
-      // Mark favorites in sounds
+      // Mark favorites in sounds and update category
       for (var i = 0; i < finalSounds.length; i++) {
         final soundId = finalSounds[i].id;
         final isFavorite = _favoriteService.isFavorite(soundId);
-        finalSounds[i] = finalSounds[i].copyWith(isFavorite: isFavorite);
+        finalSounds[i] = finalSounds[i].copyWith(
+          isFavorite: isFavorite,
+          category: CategoryType.recent
+        );
       }
       
       // Luôn cập nhật UI
@@ -845,7 +941,9 @@ class SoundViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       // Sử dụng dữ liệu mẫu khi có lỗi
-      _onlineSounds = _createMockSounds('Recent');
+      _onlineSounds = _createMockSounds('Recent').map((sound) => 
+        sound.copyWith(category: CategoryType.recent)
+      ).toList();
       _updateCategorizedSounds();
       notifyListeners();
     } finally {
@@ -858,6 +956,10 @@ class SoundViewModel extends ChangeNotifier {
     try {
       _setLoading(true);
       
+      // Set mode flags
+      _recentMode = false;
+      _bestMode = true;
+      
       final sounds = await _myInstantsService.getBest();
       
       // Nếu không có âm thanh từ API, sử dụng dữ liệu mẫu
@@ -866,11 +968,14 @@ class SoundViewModel extends ChangeNotifier {
         finalSounds = _createMockSounds('Best');
       }
       
-      // Mark favorites in sounds
+      // Mark favorites in sounds and update category
       for (var i = 0; i < finalSounds.length; i++) {
         final soundId = finalSounds[i].id;
         final isFavorite = _favoriteService.isFavorite(soundId);
-        finalSounds[i] = finalSounds[i].copyWith(isFavorite: isFavorite);
+        finalSounds[i] = finalSounds[i].copyWith(
+          isFavorite: isFavorite,
+          category: CategoryType.best
+        );
       }
       
       // Luôn cập nhật UI
@@ -879,7 +984,9 @@ class SoundViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       // Sử dụng dữ liệu mẫu khi có lỗi
-      _onlineSounds = _createMockSounds('Best');
+      _onlineSounds = _createMockSounds('Best').map((sound) => 
+        sound.copyWith(category: CategoryType.best)
+      ).toList();
       _updateCategorizedSounds();
       notifyListeners();
     } finally {
@@ -999,5 +1106,13 @@ class SoundViewModel extends ChangeNotifier {
   /// Kiểm tra xem một âm thanh đã được tải về thiết bị chưa
   bool isLocalSound(String soundId) {
     return _localSounds.any((sound) => sound.id == soundId);
+  }
+  
+  /// Refresh local sounds - public method
+  Future<void> refreshLocalSounds() async {
+    _setLoading(true);
+    await _loadLocalSounds();
+    _loadFavoriteSounds();
+    _setLoading(false);
   }
 } 

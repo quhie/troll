@@ -8,8 +8,10 @@ import '../services/preferences_service.dart';
 import '../services/localization_service.dart';
 import '../utils/app_theme.dart';
 import '../utils/haptic_feedback_helper.dart';
+import '../utils/constants.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/custom_app_bar.dart';
+import '../widgets/custom_tooltip.dart';
 
 /// Modern settings screen with clean UI
 class SettingsScreen extends StatefulWidget {
@@ -285,7 +287,7 @@ class _SettingsContent extends StatelessWidget {
             // Implement app rating action here
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Rating feature would go here'),
+                content: Text('rate_app_action'.tr()),
                 duration: const Duration(seconds: 2),
               ),
             );
@@ -302,8 +304,8 @@ class _SettingsContent extends StatelessWidget {
             // Launch email app for feedback
             final Uri emailUri = Uri(
               scheme: 'mailto',
-              path: 'feedback@example.com',
-              query: 'subject=Troll Sounds Feedback',
+              path: AppConstants.APP_FEEDBACK_EMAIL,
+              query: 'subject=${AppConstants.APP_NAME} ${'feedback_subject'.tr()}',
             );
 
             try {
@@ -312,7 +314,7 @@ class _SettingsContent extends StatelessWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Could not open email app'),
+                    content: Text('email_failed'.tr()),
                     duration: const Duration(seconds: 2),
                   ),
                 );
@@ -330,9 +332,9 @@ class _SettingsContent extends StatelessWidget {
           onTap: () {
             // Implement privacy policy action here
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Privacy policy would go here'),
-                duration: Duration(seconds: 2),
+              SnackBar(
+                content: Text('privacy_policy_action'.tr()),
+                duration: const Duration(seconds: 2),
               ),
             );
           },
@@ -446,7 +448,7 @@ class _SettingsContent extends StatelessWidget {
         'version'.tr(),
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
-      subtitle: const Text('1.0.1'),
+      subtitle: const Text(AppConstants.APP_VERSION),
     );
   }
 
@@ -541,21 +543,23 @@ class _SettingsContent extends StatelessWidget {
 
   /// Builds the help button for the app bar
   Widget _buildHelpButton(BuildContext context) {
-    return IconButton(
-          icon: Icon(
-            Icons.help_outline,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          onPressed: () => _showHelpDialog(context),
-          tooltip: 'help'.tr(),
-        )
-        .animate()
-        .fade(duration: 300.ms)
-        .scale(
-          begin: const Offset(0.8, 0.8),
-          end: const Offset(1.0, 1.0),
-          duration: 300.ms,
-        );
+    return CustomTooltip(
+      message: 'help'.tr(),
+      child: IconButton(
+        icon: Icon(
+          Icons.help_outline,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+        onPressed: () => _showHelpDialog(context),
+      ),
+    )
+    .animate()
+    .fade(duration: 300.ms)
+    .scale(
+      begin: const Offset(0.8, 0.8),
+      end: const Offset(1.0, 1.0),
+      duration: 300.ms,
+    );
   }
 
   /// Shows the help dialog with information about settings
@@ -564,7 +568,7 @@ class _SettingsContent extends StatelessWidget {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: Text('settings'.tr() + ' ' + 'help'.tr()),
+            title: Text('settings_help'.tr()),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 /// Service for handling app permissions
 class PermissionsService {
@@ -103,36 +104,35 @@ class PermissionsService {
     return await permission.status;
   }
 
-  /// Show permission rationale dialog
-  Future<bool> showPermissionRationaleDialog(
-    BuildContext context,
-    String title,
-    String message,
-  ) async {
-    final result = await showDialog<bool>(
+  /// Show permission dialog with rationale
+  static Future<bool> showPermissionRationale(
+    BuildContext context, {
+    required String title,
+    required String message,
+  }) async {
+    bool goToSettings = false;
+    
+    await showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(title),
-            content: Text(message),
-            actions: [
-              TextButton(
-                child: const Text('Cancel'),
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
-              TextButton(
-                child: const Text('Settings'),
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
-            ],
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('cancel'.tr()),
           ),
+          TextButton(
+            onPressed: () {
+              goToSettings = true;
+              Navigator.of(ctx).pop();
+            },
+            child: Text('settings'.tr()),
+          ),
+        ],
+      ),
     );
-
-    if (result == true) {
-      // Open app settings
-      await openAppSettings();
-    }
-
-    return result ?? false;
+    
+    return goToSettings;
   }
 }

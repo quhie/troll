@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../models/sound_model.dart';
 import '../services/download_service.dart';
 
@@ -122,7 +123,7 @@ class _DownloadButtonState extends State<DownloadButton>
               children: [
                 ListTile(
                   leading: const Icon(Icons.delete_outline),
-                  title: const Text('Delete download'),
+                  title: Text('delete'.tr(), style: Theme.of(context).textTheme.bodyMedium),
                   onTap: () {
                     Navigator.pop(context);
                     _deleteDownload();
@@ -130,13 +131,13 @@ class _DownloadButtonState extends State<DownloadButton>
                 ),
                 ListTile(
                   leading: const Icon(Icons.share),
-                  title: const Text('Share sound'),
+                  title: Text('share'.tr(), style: Theme.of(context).textTheme.bodyMedium),
                   onTap: () {
                     Navigator.pop(context);
                     // Share functionality to be implemented
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Share functionality coming soon'),
+                      SnackBar(
+                        content: Text('share_coming_soon'.tr()),
                       ),
                     );
                   },
@@ -161,7 +162,7 @@ class _DownloadButtonState extends State<DownloadButton>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Download deleted')));
+        ).showSnackBar(SnackBar(content: Text('delete_success'.tr())));
       }
     }
   }

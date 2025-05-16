@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 import '../models/sound_model.dart';
 import '../models/sound_category.dart';
@@ -9,6 +10,7 @@ import '../services/sound_service.dart';
 import '../widgets/sound_card.dart';
 import '../widgets/category_header.dart';
 import '../widgets/custom_app_bar.dart';
+import '../widgets/custom_tooltip.dart';
 
 /// Favorites screen that displays saved favorite sounds
 class FavoritesScreen extends StatefulWidget {
@@ -85,7 +87,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: 'Yêu Thích',
+        title: 'manage_favorites'.tr(),
         centerTitle: true,
         showBackButton: true,
         actions: [_buildHelpButton(context)],
@@ -134,7 +136,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
               ),
               const SizedBox(height: 24),
               Text(
-                'Chưa Có Âm Thanh Yêu Thích',
+                'no_favorites'.tr(),
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.grey,
@@ -144,7 +146,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Text(
-                  'Giữ lâu trên âm thanh để thêm vào danh sách yêu thích của bạn',
+                  'add_to_favorites_hint'.tr(),
                   textAlign: TextAlign.center,
                   style: Theme.of(
                     context,
@@ -170,7 +172,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     return ElevatedButton.icon(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back),
-          label: const Text('Quay Lại Trang Chủ'),
+          label: Text('back_to_home'.tr()),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(
@@ -257,40 +259,42 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
   /// Builds the help button for the app bar
   Widget _buildHelpButton(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.info_outline),
-      tooltip: 'Trợ giúp',
-      onPressed: () {
-        showDialog(
-          context: context,
-          builder:
-              (context) => AlertDialog(
-                title: const Text('Quản Lý Âm Thanh Yêu Thích'),
-                content: const SingleChildScrollView(
-                  child: ListBody(
-                    children: [
-                      Text('• Nhấn vào âm thanh để phát'),
-                      SizedBox(height: 8),
-                      Text('• Giữ lâu để xóa khỏi danh sách yêu thích'),
-                      SizedBox(height: 8),
-                      Text(
-                        '• Các âm thanh được phân loại theo danh mục để dễ tìm kiếm',
-                      ),
-                    ],
+    return CustomTooltip(
+      message: 'help'.tr(),
+      child: IconButton(
+        icon: const Icon(Icons.info_outline),
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder:
+                (context) => AlertDialog(
+                  title: Text('manage_favorites'.tr()),
+                  content: const SingleChildScrollView(
+                    child: ListBody(
+                      children: [
+                        Text('• Nhấn vào âm thanh để phát'),
+                        SizedBox(height: 8),
+                        Text('• Giữ lâu để xóa khỏi danh sách yêu thích'),
+                        SizedBox(height: 8),
+                        Text(
+                          '• Các âm thanh được phân loại theo danh mục để dễ tìm kiếm',
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('ok'.tr()),
+                    ),
+                  ],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Đã Hiểu'),
-                  ),
-                ],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

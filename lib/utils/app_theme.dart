@@ -230,6 +230,10 @@ class AppTheme {
         horizontal: 12,
         vertical: 6,
       ),
+      waitDuration: const Duration(milliseconds: 500),
+      showDuration: const Duration(seconds: 2),
+      preferBelow: true,
+      enableFeedback: true,
     ),
   );
   
@@ -420,6 +424,10 @@ class AppTheme {
         horizontal: 12,
         vertical: 6,
       ),
+      waitDuration: const Duration(milliseconds: 500),
+      showDuration: const Duration(seconds: 2),
+      preferBelow: true,
+      enableFeedback: true,
     ),
   );
   

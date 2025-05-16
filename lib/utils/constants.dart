@@ -517,4 +517,14 @@ class Constants {
   static const String hapticFeedbackKey = 'haptic_feedback';
   static const String animationSpeedKey = 'animation_speed';
   static const String alarmHistoryKey = 'alarm_history';
+}
+
+/// App constants
+class AppConstants {
+  static const String APP_NAME = 'Troll Sounds';
+  static const String APP_VERSION = '1.0.1';
+  static const String APP_FEEDBACK_EMAIL = 'feedback@example.com';
+  
+  static const String appName = 'app_name';
+  static const String tagline = 'app_tagline';
 } 

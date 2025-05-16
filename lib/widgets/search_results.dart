@@ -10,24 +10,31 @@ import '../widgets/sound_card.dart';
 /// Widget hiển thị danh sách kết quả tìm kiếm
 class SearchResults extends StatelessWidget {
   final List<SoundModel> results;
-  final String query;
-  final Function() onRefresh;
+  final String? searchQuery;
+  final Function(SoundModel)? onSoundTap;
+  final String? currentPlayingId;
+  final Function()? onRefresh;
 
   const SearchResults({
     Key? key,
     required this.results,
-    required this.query,
-    required this.onRefresh,
+    this.searchQuery,
+    this.onSoundTap,
+    this.currentPlayingId,
+    this.onRefresh,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final viewModel = Provider.of<SoundViewModel>(context);
-    final currentPlayingSoundId = viewModel.currentPlayingSoundId;
+    final currentPlayingSoundId = currentPlayingId ?? viewModel.currentPlayingSoundId;
+    final query = searchQuery ?? '';
     
     return RefreshIndicator(
       onRefresh: () async {
-        await onRefresh();
+        if (onRefresh != null) {
+          await onRefresh!();
+        }
       },
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -53,15 +60,25 @@ class SearchResults extends StatelessWidget {
           
           // Kiểm tra trạng thái yêu thích thực tế
           final isFavorite = viewModel.favoriteSounds.any((s) => s.id == sound.id);
-          final soundWithUpdatedFavorite = sound.copyWith(isFavorite: isFavorite);
+          final isLocalSound = viewModel.isLocalSound(sound.id);
+          final soundWithUpdatedState = sound.copyWith(
+            isFavorite: isFavorite,
+            isLocal: isLocalSound
+          );
           
           // Improved sound card with animation
           return SoundCard(
-            sound: soundWithUpdatedFavorite,
+            sound: soundWithUpdatedState,
             isPlaying: isPlaying,
-            onPlay: () => _playSound(context, soundWithUpdatedFavorite),
-            onDownload: () => _downloadSound(context, soundWithUpdatedFavorite),
-            onFavorite: () => _toggleFavorite(context, soundWithUpdatedFavorite),
+            onPlay: () {
+              if (onSoundTap != null) {
+                onSoundTap!(soundWithUpdatedState);
+              } else {
+                _playSound(context, soundWithUpdatedState);
+              }
+            },
+            onDownload: () => _downloadSound(context, soundWithUpdatedState),
+            onFavorite: () => _toggleFavorite(context, soundWithUpdatedState),
             showCategory: true,
             showDownloadButton: true, // Hiển thị nút tải về
           ).animate().fade(

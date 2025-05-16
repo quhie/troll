@@ -18,7 +18,7 @@ class LocalizationService extends ChangeNotifier {
   static const Locale fallbackLocale = Locale('en');
   
   // Path to language files
-  static const String path = 'assets/langs';
+  static const String path = 'assets/translations';
   
   // Current app locale
   Locale _currentLocale = fallbackLocale;

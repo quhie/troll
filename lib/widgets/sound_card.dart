@@ -79,7 +79,7 @@ class SoundCard extends StatelessWidget {
             if (!isValidSound) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Invalid sound URL'),
+                  content: Text('invalid_sound_url'.tr()),
                   duration: const Duration(seconds: 1),
                   behavior: SnackBarBehavior.floating,
                 )
@@ -164,7 +164,7 @@ class SoundCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  sound.category.name,
+                                  sound.category.localizedName,
                                   style: TextStyle(
                                     color: isPlaying 
                                         ? Colors.white
@@ -470,6 +470,12 @@ class SoundCard extends StatelessWidget {
         return Icons.alarm;
       case CategoryType.favorite:
         return Icons.favorite;
+      case CategoryType.trending:
+        return Icons.trending_up;
+      case CategoryType.recent:
+        return Icons.history;
+      case CategoryType.best:
+        return Icons.star;
       default:
         return Icons.music_note;
     }

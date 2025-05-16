@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../utils/constants.dart';
 import '../screens/enter_view.dart';
 import '../screens/app_container.dart';
@@ -884,12 +885,12 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ],
                         child: Text(
-                          "TROLL SOUNDS",
+                          AppConstants.appName.tr(),
                     style: TextStyle(
-                      fontSize: 46,
+                      fontSize: 38,
                       fontWeight: FontWeight.w900,
                       fontFamily: 'Outfit',
-                      letterSpacing: 0.8,
+                      letterSpacing: 0.5,
                       color: isDark ? Colors.white : Colors.blue.shade800,
                             shadows: [
                               Shadow(
@@ -926,12 +927,12 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ],
                   child: Text(
-                    "Troll Your Friends With Sounds",
+                    AppConstants.tagline.tr(),
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: isDark ? Colors.white70 : Colors.black87,
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.2,
                     ),
                   ).animate().shimmer(
                     duration: 1800.ms,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'toast_helper.dart';
 
 /// Helper class để hiển thị tiến trình tải xuống đẹp và chuyên nghiệp
@@ -179,9 +180,9 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
             valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Vui lòng đợi trong giây lát...',
-            style: TextStyle(fontSize: 13),
+          Text(
+            'please_wait'.tr(),
+            style: const TextStyle(fontSize: 13),
             textAlign: TextAlign.center,
           ),
         ],
@@ -200,9 +201,9 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
             end: const Offset(1.0, 1.0),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Tải xuống hoàn tất!',
-            style: TextStyle(fontSize: 14),
+          Text(
+            'download_completed'.tr(),
+            style: const TextStyle(fontSize: 14),
             textAlign: TextAlign.center,
           ),
         ],
@@ -234,7 +235,7 @@ class _DownloadProgressDialogState extends State<DownloadProgressDialog> {
       onPressed: () {
         Navigator.of(context).pop();
       },
-      child: const Text('Đóng'),
+      child: Text('close'.tr()),
     );
   }
 } 

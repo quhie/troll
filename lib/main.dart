@@ -12,14 +12,18 @@ import 'services/preferences_service.dart';
 import 'services/localization_service.dart';
 import 'services/favorite_service.dart';
 import 'services/keyboard_service.dart';
+import 'services/connectivity_service.dart';
 import 'viewmodels/theme_viewmodel.dart';
 import 'viewmodels/sound_viewmodel.dart';
 import 'utils/app_theme.dart';
 import 'utils/constants.dart';
 import 'utils/app_config.dart';
 import 'utils/toast_helper.dart';
+import 'utils/connectivity_dialog.dart';
 import 'widgets/splash_screen.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'generated/codegen_loader.g.dart';
 
 // Cờ debug - đặt thành true để sử dụng màn hình debug
 const bool USE_DEBUG_MODE = false;
@@ -46,9 +50,19 @@ void main() async {
   final permissionsService = PermissionsService();
   await permissionsService.requestAllPermissions();
   
+  if (await Permission.storage.request().isGranted) {
+    // Storage permissions are granted
+  }
+  
+  final preferencesService = PreferencesService();
+  
   // Initialize services
   final soundService = SoundService();
   final favoriteService = FavoriteService();
+  
+  // Initialize connectivity service
+  final connectivityService = ConnectivityService();
+  connectivityService.initialize();
   
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
@@ -58,14 +72,20 @@ void main() async {
   
   runApp(
     EasyLocalization(
-      supportedLocales: LocalizationService.supportedLocales,
-      path: LocalizationService.path,
-      fallbackLocale: LocalizationService.fallbackLocale,
+      supportedLocales: const [
+        Locale('en'),
+        Locale('vi'),
+      ],
+      path: 'assets/translations',
+      fallbackLocale: const Locale('en'),
+      assetLoader: CodegenLoader(),
       child: MultiProvider(
         providers: [
           // Basic services
           ChangeNotifierProvider<SoundService>(create: (_) => soundService),
-          ChangeNotifierProvider<PreferencesService>(create: (_) => PreferencesService()),
+          ChangeNotifierProvider<PreferencesService>(
+            create: (_) => preferencesService,
+          ),
           
           // Localization service
           ChangeNotifierProvider<LocalizationService>(create: (_) {
@@ -75,13 +95,20 @@ void main() async {
           }),
           
           // ViewModels
-          ChangeNotifierProvider<ThemeViewModel>(create: (_) => ThemeViewModel()),
+          ChangeNotifierProvider<ThemeViewModel>(
+            create: (_) => ThemeViewModel(),
+          ),
           
           // MyInstants service (not a ChangeNotifier)
           Provider<MyInstantsService>(create: (_) => MyInstantsService()),
           
           // Favorite service
-          Provider(create: (_) => favoriteService),
+          Provider<FavoriteService>(create: (_) => favoriteService),
+          
+          // Connectivity service
+          Provider<ConnectivityService>(
+            create: (_) => connectivityService,
+          ),
           
           // SoundViewModel that depends on other services
           ChangeNotifierProxyProvider3<SoundService, MyInstantsService, PreferencesService, SoundViewModel>(
@@ -151,9 +178,36 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class TrollApp extends StatelessWidget {
+class TrollApp extends StatefulWidget {
   const TrollApp({super.key});
+  
+  @override
+  State<TrollApp> createState() => _TrollAppState();
+}
 
+class _TrollAppState extends State<TrollApp> {
+  @override
+  void initState() {
+    super.initState();
+    
+    // Đăng ký lắng nghe sự thay đổi kết nối
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+      
+      connectivityService.connectionStatus.listen((isConnected) {
+        if (context.mounted) {
+          if (!isConnected) {
+            // Hiển thị thông báo mất kết nối
+            ConnectivityDialog.showNoConnectionMessage(context);
+          } else {
+            // Ẩn thông báo mất kết nối nếu đang hiển thị
+            ConnectivityDialog.hideNoConnectionMessage();
+          }
+        }
+      });
+    });
+  }
+  
   @override
   Widget build(BuildContext context) {
     final preferencesService = Provider.of<PreferencesService>(context);
