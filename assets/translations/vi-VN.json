@@ -110,5 +110,17 @@
     "nav_home": "Trang chủ",
     "nav_search": "Tìm kiếm",
     "nav_browser": "Danh mục",
-    "nav_settings": "Cài đặt"
+    "nav_settings": "Cài đặt",
+
+    "skip": "Bỏ qua",
+    "welcome_title": "Chào mừng đến với Troll Sounds",
+    "welcome_desc": "Ứng dụng âm thanh prank tuyệt vời, đầy âm thanh vui vẻ để làm phiền bạn bè!",
+    "categories_title": "Danh mục Âm thanh",
+    "categories_desc": "Khám phá âm thanh được sắp xếp theo danh mục: Điện thoại, Trò chơi, Kinh dị, Meme và nhiều hơn nữa!",
+    "favorites_title": "Lưu Yêu thích",
+    "favorites_desc": "Nhấn dài lên âm thanh để thêm vào danh sách yêu thích của bạn để truy cập nhanh chóng.",
+    "ready_title": "Sẵn sàng để Troll?",
+    "ready_desc": "Đã đến lúc có vui vẻ và làm phiền mọi người với âm thanh hiệu ứng tuyệt vời!"
+
+    
   } 

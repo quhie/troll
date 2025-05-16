@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/preferences_service.dart';
 import '../screens/app_container.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'dart:developer' as developer;
 
 /// Onboarding screen shown to first-time users - optimized for performance
 class OnboardingView extends StatefulWidget {
@@ -16,6 +17,41 @@ class _OnboardingViewState extends State<OnboardingView> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final int _totalPages = 4;
+
+  // Map dịch thuật trực tiếp cho tiếng Anh
+  final Map<String, String> _enTexts = {
+    'welcome_title': 'Welcome to Troll Sounds',
+    'welcome_desc': 'Your ultimate prank sound effects app, packed with fun sounds to surprise your friends!',
+    'categories_title': 'Sound Categories',
+    'categories_desc': 'Explore sounds organized in categories: Phone, Game, Horror, Meme and more!',
+    'favorites_title': 'Save Favorites',
+    'favorites_desc': 'Long press any sound to add it to your favorites for quick access.',
+    'ready_title': 'Ready to Troll?',
+    'ready_desc': 'Time to have fun and surprise everyone with amazing sound effects!',
+    'skip': 'Skip',
+  };
+
+  // Map dịch thuật trực tiếp cho tiếng Việt
+  final Map<String, String> _viTexts = {
+    'welcome_title': 'Chào mừng đến với Âm Thanh Troll',
+    'welcome_desc': 'Ứng dụng âm thanh dùng để chọc ghẹo bạn bè với các hiệu ứng âm thanh vui nhộn!',
+    'categories_title': 'Danh mục âm thanh',
+    'categories_desc': 'Khám phá âm thanh được tổ chức theo danh mục: Điện thoại, Game, Kinh dị, Meme và nhiều hơn nữa!',
+    'favorites_title': 'Lưu âm thanh yêu thích',
+    'favorites_desc': 'Nhấn giữ âm thanh bất kỳ để thêm vào danh sách yêu thích để truy cập nhanh.',
+    'ready_title': 'Sẵn sàng troll chưa?',
+    'ready_desc': 'Đã đến lúc vui vẻ và tạo bất ngờ cho mọi người với các hiệu ứng âm thanh thú vị!',
+    'skip': 'Bỏ qua',
+  };
+
+  // Hàm lấy text theo ngôn ngữ hiện tại
+  String getLocalizedText(String key) {
+    final locale = context.locale.languageCode;
+    if (locale == 'vi') {
+      return _viTexts[key] ?? key;
+    }
+    return _enTexts[key] ?? key;
+  }
 
   final List<OnboardingPage> _pages = [
     OnboardingPage(
@@ -43,6 +79,18 @@ class _OnboardingViewState extends State<OnboardingView> {
       color: Colors.orange.shade700,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Log ngôn ngữ hiện tại khi khởi tạo màn hình
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      developer.log('Current locale: ${context.locale}');
+      developer.log('Supported locales: ${context.supportedLocales}');
+      developer.log('Welcome title raw: welcome_title');
+      developer.log('Welcome title localized: ${getLocalizedText('welcome_title')}');
+    });
+  }
 
   @override
   void dispose() {
@@ -98,7 +146,7 @@ class _OnboardingViewState extends State<OnboardingView> {
                   child: TextButton(
                     onPressed: _completeOnboarding,
                     child: Text(
-                      'skip'.tr(),
+                      getLocalizedText('skip'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -179,6 +227,12 @@ class _OnboardingViewState extends State<OnboardingView> {
   }
 
   Widget _buildPage(OnboardingPage page) {
+    // Log quá trình dịch trong mỗi lần build page
+    developer.log('Building page with title key: ${page.title}');
+    developer.log('Title translated directly: ${getLocalizedText(page.title)}');
+    developer.log('Description key: ${page.description}');
+    developer.log('Description translated directly: ${getLocalizedText(page.description)}');
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
@@ -199,7 +253,7 @@ class _OnboardingViewState extends State<OnboardingView> {
 
           // Title
           Text(
-            page.title.tr(),
+            getLocalizedText(page.title),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -215,7 +269,7 @@ class _OnboardingViewState extends State<OnboardingView> {
           Container(
             constraints: const BoxConstraints(maxWidth: 280),
             child: Text(
-              page.description.tr(),
+              getLocalizedText(page.description),
               style: TextStyle(
                 color: Colors.white.withOpacity(0.9),
                 fontSize: 13,

@@ -110,5 +110,15 @@
   "nav_home": "Home",
   "nav_search": "Search",
   "nav_browser": "Categories",
-  "nav_settings": "Settings"
+  "nav_settings": "Settings",
+
+  "skip": "Skip",
+  "welcome_title": "Welcome to Troll Sounds",
+  "welcome_desc": "Your ultimate prank sound effects app, packed with fun sounds to surprise your friends!",
+  "categories_title": "Sound Categories",
+  "categories_desc": "Explore sounds organized in categories: Phone, Game, Horror, Meme and more!",
+  "favorites_title": "Save Favorites",
+  "favorites_desc": "Long press any sound to add it to your favorites for quick access.",
+  "ready_title": "Ready to Troll?",
+  "ready_desc": "Time to have fun and surprise everyone with amazing sound effects!"
 } 
