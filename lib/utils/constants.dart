@@ -39,9 +39,9 @@ class Constants {
   static const int iosBackgroundTaskDuration = 30; // seconds
   
   /// URLs
-  static const String privacyPolicyUrl = 'https://yourapp.com/privacy';
-  static const String termsUrl = 'https://yourapp.com/terms';
-  static const String supportEmail = 'support@yourapp.com';
+  static const String privacyPolicyUrl = 'https://quhie.github.io/hehehe';
+  static const String termsUrl = 'https://quhie.github.io/hehehe';
+  static const String supportEmail = 'doquanghieu.dev@gmail.com';
   
   // Storage keys
   static const String userSoundsCategoriesKey = "user_sounds_categories";
@@ -522,8 +522,8 @@ class Constants {
 /// App constants
 class AppConstants {
   static const String APP_NAME = 'Troll Sounds';
-  static const String APP_VERSION = '1.0.1';
-  static const String APP_FEEDBACK_EMAIL = 'feedback@example.com';
+  static const String APP_VERSION = '1.0.0';
+  static const String APP_FEEDBACK_EMAIL = 'doquanghieu.dev@gmail.com';
   
   static const String appName = 'app_name';
   static const String tagline = 'app_tagline';

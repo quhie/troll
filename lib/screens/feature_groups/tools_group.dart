@@ -157,7 +157,7 @@ class ToolsGroup {
 
   /// Launch app store
   static Future<void> _launchAppStore() async {
-    const String appStoreUrl = 'https://apps.apple.com/app/trollpromax';
+    const String appStoreUrl = 'https://apps.apple.com/app/trollsounds';
     final Uri url = Uri.parse(appStoreUrl);
 
     if (await canLaunchUrl(url)) {
@@ -173,7 +173,7 @@ class ToolsGroup {
       scheme: 'mailto',
       path: email,
       queryParameters: {
-        'subject': 'TrollPro Max Support Request',
+        'subject': 'Troll Sounds Support Request',
         'body': 'App version: 1.0.0\nDevice: \nIssue: ',
       },
     );
@@ -188,7 +188,7 @@ class ToolsGroup {
   /// Share app with friends
   static Future<void> _shareApp() async {
     const String shareText =
-        'Check out TrollPro Max - the ultimate prank app! Get it now at https://apps.apple.com/app/trollpromax';
+        'Check out Troll Sounds - the ultimate prank app! Get it now at https://apps.apple.com/app/trollsounds';
 
     // This would normally use the share package
     // For now, just copy to clipboard

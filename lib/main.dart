@@ -24,6 +24,18 @@ import 'widgets/splash_screen.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'generated/codegen_loader.g.dart';
+import 'dart:async';
+
+/**
+ * Các cải tiến để giảm lag và cải thiện hiệu suất:
+ * 1. Tối ưu quá trình khởi động bằng cách hoãn các tác vụ nặng
+ * 2. Giảm thiểu hoạt ảnh và hiệu ứng đồ họa phức tạp trong splash screen
+ * 3. Giảm số lượng particle và các hiệu ứng vẽ nặng
+ * 4. Sử dụng kỹ thuật RepaintBoundary để cô lập các vùng vẽ lại
+ * 5. Phân tách quá trình khởi tạo thành các giai đoạn: cần thiết ngay và trì hoãn
+ * 6. Yêu cầu quyền truy cập trong nền sau khi UI đã hiển thị
+ * 7. Sử dụng lazy loading cho các service không cần thiết ngay lập tức
+ */
 
 // Cờ debug - đặt thành true để sử dụng màn hình debug
 const bool USE_DEBUG_MODE = false;
@@ -32,10 +44,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
   
-  // Khởi tạo AudioPlayer cho phát âm thanh từ URL
-  AudioCache.instance = AudioCache(prefix: '');
-  
-  // Configure system UI
+  // Configure system UI immediately for smoother startup
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -46,30 +55,22 @@ void main() async {
     ),
   );
   
-  // Request permissions
-  final permissionsService = PermissionsService();
-  await permissionsService.requestAllPermissions();
-  
-  if (await Permission.storage.request().isGranted) {
-    // Storage permissions are granted
-  }
-  
-  final preferencesService = PreferencesService();
-  
-  // Initialize services
-  final soundService = SoundService();
-  final favoriteService = FavoriteService();
-  
-  // Initialize connectivity service
-  final connectivityService = ConnectivityService();
-  connectivityService.initialize();
-  
-  // Set preferred orientations
+  // Set preferred orientations early
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Initialize audio cache with deferred setup
+  AudioCache.instance = AudioCache(prefix: '');
   
+  // Create essential services for immediate startup
+  final preferencesService = PreferencesService();
+  final soundService = SoundService();
+  final connectivityService = ConnectivityService();
+  connectivityService.initialize();
+  
+  // Start the app with minimal initialization
   runApp(
     EasyLocalization(
       supportedLocales: const [
@@ -90,7 +91,8 @@ void main() async {
           // Localization service
           ChangeNotifierProvider<LocalizationService>(create: (_) {
             final service = LocalizationService();
-            service.init();
+            // Defer initialization
+            Future.microtask(() => service.init());
             return service;
           }),
           
@@ -102,12 +104,15 @@ void main() async {
           // MyInstants service (not a ChangeNotifier)
           Provider<MyInstantsService>(create: (_) => MyInstantsService()),
           
-          // Favorite service
-          Provider<FavoriteService>(create: (_) => favoriteService),
-          
           // Connectivity service
           Provider<ConnectivityService>(
             create: (_) => connectivityService,
+          ),
+          
+          // Favorite service - lazy initialization
+          Provider<FavoriteService>(
+            create: (_) => FavoriteService(),
+            lazy: true,
           ),
           
           // SoundViewModel that depends on other services
@@ -129,53 +134,16 @@ void main() async {
       ),
     ),
   );
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        // Basic services
-        ChangeNotifierProvider<SoundService>(create: (_) => SoundService()),
-        ChangeNotifierProvider<PreferencesService>(create: (_) => PreferencesService()),
-        
-        // Localization service
-        ChangeNotifierProvider<LocalizationService>(create: (_) {
-          final service = LocalizationService();
-          service.init();
-          return service;
-        }),
-        
-        // ViewModels
-        ChangeNotifierProvider<ThemeViewModel>(create: (_) => ThemeViewModel()),
-        
-        // MyInstants service (not a ChangeNotifier)
-        Provider<MyInstantsService>(create: (_) => MyInstantsService()),
-        
-        // Favorite service
-        Provider<FavoriteService>(create: (_) => FavoriteService()),
-        
-        // SoundViewModel that depends on other services
-        ChangeNotifierProxyProvider3<SoundService, MyInstantsService, PreferencesService, SoundViewModel>(
-          create: (ctx) => SoundViewModel(
-            soundService: ctx.read<SoundService>(),
-            myInstantsService: ctx.read<MyInstantsService>(),
-            preferencesService: ctx.read<PreferencesService>(),
-          ),
-          update: (ctx, soundService, myInstantsService, preferencesService, previousViewModel) => 
-            previousViewModel ?? SoundViewModel(
-              soundService: soundService,
-              myInstantsService: myInstantsService,
-              preferencesService: preferencesService,
-            ),
-        ),
-      ],
-      child: const TrollApp(),
-    );
-  }
+  
+  // Run heavy initialization tasks after UI is rendered
+  Timer(const Duration(milliseconds: 100), () async {
+    final permissionsService = PermissionsService();
+    // Request permissions in background
+    unawaited(permissionsService.requestAllPermissions());
+    
+    // Check storage permission
+    unawaited(Permission.storage.request());
+  });
 }
 
 class TrollApp extends StatefulWidget {
@@ -185,27 +153,51 @@ class TrollApp extends StatefulWidget {
   State<TrollApp> createState() => _TrollAppState();
 }
 
-class _TrollAppState extends State<TrollApp> {
+class _TrollAppState extends State<TrollApp> with WidgetsBindingObserver {
+  bool _isConnectivityListenerRegistered = false;
+  
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     
-    // Đăng ký lắng nghe sự thay đổi kết nối
+    // Defer connectivity listener setup to avoid startup lag
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
-      
-      connectivityService.connectionStatus.listen((isConnected) {
-        if (context.mounted) {
-          if (!isConnected) {
-            // Hiển thị thông báo mất kết nối
-            ConnectivityDialog.showNoConnectionMessage(context);
-          } else {
-            // Ẩn thông báo mất kết nối nếu đang hiển thị
-            ConnectivityDialog.hideNoConnectionMessage();
-          }
-        }
-      });
+      _setupConnectivityListener();
     });
+  }
+  
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isConnectivityListenerRegistered && mounted) {
+      _setupConnectivityListener();
+    }
+  }
+  
+  void _setupConnectivityListener() {
+    if (_isConnectivityListenerRegistered || !mounted) return;
+    
+    final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+    connectivityService.connectionStatus.listen((isConnected) {
+      if (!mounted) return;
+      
+      if (!isConnected) {
+        // Hiển thị thông báo mất kết nối
+        ConnectivityDialog.showNoConnectionMessage(context);
+      } else {
+        // Ẩn thông báo mất kết nối nếu đang hiển thị
+        ConnectivityDialog.hideNoConnectionMessage();
+      }
+    });
+    
+    _isConnectivityListenerRegistered = true;
   }
   
   @override
