@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.1+4
 
 environment:
-  sdk: ^3.7.0
+  sdk: ^3.6.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -55,7 +55,7 @@ dependencies:
   path_provider: ^2.1.5
   shimmer: ^3.0.0
   share_plus: ^11.0.0
-  device_info_plus: ^11.4.0
+  device_info_plus: ^11.3.0
   file_picker: ^10.1.9
   
   # Added for refactoring requirements
